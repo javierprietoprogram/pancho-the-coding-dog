@@ -1,173 +1,178 @@
 # Pancho, the coding dog 🐾
 
-**Una mascota flotante para macOS que te avisa cuando Claude Code o Codex necesitan algo de ti, y te deja contestar sin ir a buscar la ventana.**
+**English** · [Español](README.es.md)
+
+**A floating macOS pet that tells you when Claude Code or Codex need something from you, and lets you answer without hunting for the window.**
 
 <p align="center">
-  <img src="media/pancho-demo.gif" alt="Demostración de Pancho" width="420">
+  <img src="media/pancho-demo-en.gif" alt="Pancho demo" width="420">
 </p>
 
 <p align="center">
-  Código abierto · macOS · Claude Code + Codex · sin cuentas, sin claves, sin API
+  Open source · macOS · Claude Code + Codex · no accounts, no keys, no API
 </p>
+
+> Pancho's own windows and buttons are in Spanish for now. This guide quotes each label as it appears on screen, with its meaning next to it.
 
 ---
 
-## El problema
+## The problem
 
-Trabajas con varios agentes de IA a la vez: tres conversaciones de Claude Code, un par de Codex… Cada uno, tarde o temprano, se para a preguntarte algo o a pedirte permiso. Y tú no te enteras: la ventana está detrás de otra, en otro escritorio o en pantalla completa. El agente se queda media hora esperando una respuesta de dos segundos.
+You work with several AI agents at once: three Claude Code conversations, a couple of Codex ones… Sooner or later each of them stops to ask you something or to request permission. And you don't notice: the window is behind another one, on another desktop or in full screen. The agent waits half an hour for a two-second answer.
 
-## Qué hace Pancho
+## What Pancho does
 
-Pancho vive en una esquina de tu pantalla, por encima de todo (también de las apps a pantalla completa).
+Pancho lives in a corner of your screen, above everything else (full-screen apps included).
 
-- **Te avisa al momento.** Cuando un agente te hace una pregunta o te pide permiso, Pancho se anima y aparece una tarjeta con el proyecto y la conversación que te necesita.
-- **Contestas desde ahí.** Pulsas la tarjeta, eliges una opción o escribes tu respuesta, y le das a Enviar. El agente sigue trabajando en su conversación original, como si hubieras contestado en su propia ventana.
-- **Ves todas tus conversaciones de un vistazo.** Una tarjeta por cada conversación en marcha, con su estado: trabajando, esperándote o terminada.
-- **Varias a la vez, sin mezclarse.** Cada respuesta vuelve exactamente a la conversación que hizo la pregunta.
-- **No pierdes nada.** Si cierras la tarjeta o no contestas, la pregunta vuelve a su app y la respondes allí. Pancho nunca responde por ti ni reenvía nada por su cuenta.
+- **It tells you right away.** When an agent asks you a question or requests permission, Pancho perks up and a card appears with the project and the conversation that needs you.
+- **You answer from there.** Click the card, pick an option or type your answer, and press «Enviar» (Send). The agent carries on in its original conversation, as if you had answered in its own window.
+- **All your conversations at a glance.** One card per running conversation, with its status: working, waiting for you, or done.
+- **Several at once, never mixed up.** Each answer goes back to exactly the conversation that asked.
+- **Nothing gets lost.** If you close the card or don't answer, the question goes back to its app and you answer it there. Pancho never answers for you and never resends anything on its own.
 
-### Qué puedes contestar desde Pancho
+### What you can answer from Pancho
 
 | | Claude Code | Codex |
 |---|:---:|:---:|
-| Preguntas del agente (con opciones o texto libre) | ✅ | ✅ |
-| Permisos (Permitir una vez / Permitir siempre / Rechazar) | ✅ | Se contestan en Codex |
-| Recuadro «siguiente paso» de la app de Claude | ✅ | — |
-| Lista de conversaciones en marcha | ✅ | ✅ |
+| Agent questions (with options or free text) | ✅ | ✅ |
+| Permissions (Allow once / Always allow / Deny) | ✅ | Answered in Codex |
+| The "next step" box of the Claude app | ✅ | — |
+| List of running conversations | ✅ | ✅ |
 
-## Cómo funciona (y por qué no pide claves)
+## How it works (and why it asks for no keys)
 
-Pancho **no usa ninguna API ni ninguna cuenta**. No habla con servidores de Anthropic ni de OpenAI, y no abre conexiones de red.
+Pancho **uses no API and no account**. It doesn't talk to Anthropic's or OpenAI's servers, and it opens no network connections.
 
-Se apoya en los *hooks* oficiales de Claude Code y de Codex: pequeños avisos que esas apps lanzan en tu propio Mac cuando ocurre algo (empieza una conversación, el agente hace una pregunta, pide un permiso, termina un turno). Al pulsar «Conectar», Pancho se apunta a esos avisos. Nada más.
+It relies on the official *hooks* of Claude Code and Codex: small notifications those apps fire on your own Mac when something happens (a conversation starts, the agent asks a question, requests a permission, finishes a turn). When you press «Conectar» (Connect), Pancho subscribes to those notifications. That's all.
 
 ```
-Claude Code / Codex  ──(hook local)──▶  puente de Pancho (Python)  ──▶  archivos privados en tu Mac  ──▶  Pancho.app
-        ▲                                                                                                   │
-        └────────────────────────────── tu respuesta ───────────────────────────────────────────────────────┘
+Claude Code / Codex  ──(local hook)──▶  Pancho bridge (Python)  ──▶  private files on your Mac  ──▶  Pancho.app
+        ▲                                                                                              │
+        └────────────────────────────── your answer ───────────────────────────────────────────────────┘
 ```
 
-- **App**: Swift + AppKit, sin dependencias.
-- **Puente**: Python con solo la biblioteca estándar.
-- **Datos**: en `~/Library/Application Support/Pancho/`, solo en tu Mac.
+- **App**: Swift + AppKit, no dependencies.
+- **Bridge**: Python, standard library only.
+- **Data**: in `~/Library/Application Support/Pancho/`, only on your Mac.
 
-## Requisitos
+## Requirements
 
-- macOS 13 (Ventura) o posterior.
-- Las herramientas de desarrollo de Apple (gratuitas; traen Swift y Python 3). Si no las tienes:
+- macOS 13 (Ventura) or later.
+- Apple's developer tools (free; they include Swift and Python 3). If you don't have them:
 
   ```bash
   xcode-select --install
   ```
 
-- Claude Code y/o Codex ya instalados y con tu sesión iniciada, como los uses normalmente.
+- Claude Code and/or Codex already installed and signed in, the way you normally use them.
 
-## Instalación
+## Installation
 
-Hay dos formas. Las dos hacen lo mismo: descargan Pancho en `~/pancho`, lo compilan en tu Mac, lo dejan en `~/Applications/Pancho.app` y lo abren. No piden contraseña y no instalan servicios en segundo plano. Como la app se compila en tu propio equipo, macOS no muestra el aviso de «desarrollador no identificado».
+There are two ways. Both do the same thing: download Pancho into `~/pancho`, build it on your Mac, place it in `~/Applications/Pancho.app` and open it. No password is requested and no background services are installed. Because the app is built on your own machine, macOS doesn't show the "unidentified developer" warning.
 
-### Opción A: una línea en la Terminal
+### Option A: one line in Terminal
 
-Abre la app **Terminal**, pega esto y pulsa Intro:
+Open the **Terminal** app, paste this and press Return:
 
 ```bash
 git clone https://github.com/javierprietoprogram/pancho-the-coding-dog.git ~/pancho && ~/pancho/install.sh
 ```
 
-Si te dice que faltan las herramientas de Apple, ejecuta `xcode-select --install`, espera a que terminen de instalarse y repite la línea de arriba.
+If it says Apple's tools are missing, run `xcode-select --install`, wait for the installation to finish and repeat the line above.
 
-### Opción B: que te lo instale tu agente
+### Option B: let your agent install it
 
-Si no quieres abrir la Terminal, pega este texto en una conversación de la **app de escritorio de Claude (pestaña Code)** o de la **app de escritorio de Codex**. Tiene que ser la app de escritorio, en tu Mac: en la web o en una sesión en la nube no funciona, porque Pancho se instala en tu equipo.
+If you'd rather not open Terminal, paste this text into a conversation in the **Claude desktop app (Code tab)** or the **Codex desktop app**. It has to be the desktop app, on your Mac: it doesn't work on the web or in a cloud session, because Pancho is installed on your machine.
 
 ```text
-Instala Pancho en este Mac. Es una mascota flotante de código abierto que me avisa
-cuando Claude Code o Codex necesitan mi respuesta.
-Repositorio: https://github.com/javierprietoprogram/pancho-the-coding-dog
+Install Pancho on this Mac. It is an open-source floating pet that tells me when
+Claude Code or Codex need my answer.
+Repository: https://github.com/javierprietoprogram/pancho-the-coding-dog
 
-Haz esto, en este orden:
-1. Comprueba que esto es macOS 13 o posterior y que `xcrun --find swiftc` funciona.
-   Si falla, dime que ejecute `xcode-select --install` y para ahí.
-2. Si no existe la carpeta ~/pancho, clona el repositorio en ella. Si ya existe,
-   entra y ejecuta `git pull`.
-3. Lee install.sh y explícame en una frase qué hace antes de ejecutarlo.
-4. Ejecuta `~/pancho/install.sh`. Compila la app, la copia a ~/Applications/Pancho.app
-   y la abre. Si tu entorno lo bloquea, pídeme permiso para ejecutarlo fuera del sandbox.
-5. Comprueba que ~/Applications/Pancho.app existe y que Pancho está abierto.
+Do this, in this order:
+1. Check that this is macOS 13 or later and that `xcrun --find swiftc` works.
+   If it fails, tell me to run `xcode-select --install` and stop there.
+2. If the folder ~/pancho does not exist, clone the repository into it. If it
+   already exists, go into it and run `git pull`.
+3. Read install.sh and explain to me in one sentence what it does before running it.
+4. Run `~/pancho/install.sh`. It builds the app, copies it to ~/Applications/Pancho.app
+   and opens it. If your environment blocks it, ask me for permission to run it
+   outside the sandbox.
+5. Check that ~/Applications/Pancho.app exists and that Pancho is open.
 
-No toques ~/.claude ni ~/.codex y no ejecutes pancho_install.py: la conexión la hago
-yo desde la ventana de Pancho. Al terminar, dime solo esto:
-- que pulse «Conectar» en Claude y/o en Codex en la ventana de Pancho;
-- que para Codex, además, apruebe los hooks de Pancho en «Review hooks»;
-- que abra una conversación nueva para que empiece a funcionar.
+Do not touch ~/.claude or ~/.codex and do not run pancho_install.py: I do the
+connection myself from Pancho's window. When you finish, tell me only this:
+- to press «Conectar» (Connect) for Claude and/or Codex in Pancho's window;
+- that for Codex I also have to approve Pancho's hooks in "Review hooks";
+- to open a new conversation so it starts working.
 ```
 
-### Actualizar
+### Updating
 
-Pancho irá recibiendo mejoras. Para tener la última versión:
+Pancho will keep getting improvements. To get the latest version:
 
 ```bash
 cd ~/pancho && git pull && ./install.sh
 ```
 
-No hace falta volver a conectar Claude ni Codex.
+You don't need to connect Claude or Codex again.
 
-## Conectar Claude y Codex
+## Connecting Claude and Codex
 
-La primera vez que se abre, Pancho te enseña su ventana de bienvenida («Hola, soy Pancho»). Si la cierras, la tienes siempre en el icono de Pancho de la barra de menús → **Configuración…**
+The first time it opens, Pancho shows its welcome window («Hola, soy Pancho»). If you close it, you can always get it back from Pancho's icon in the menu bar → **Configuración…** (Settings).
 
-### Claude Code: un clic
+### Claude Code: one click
 
-1. Pulsa **Conectar** en la fila de Claude.
-2. Abre una conversación **nueva** de Claude Code (las que ya tenías abiertas no se enteran hasta que las reinicies).
+1. Press **Conectar** (Connect) in the Claude row.
+2. Open a **new** Claude Code conversation (the ones already open won't notice until you restart them).
 
-Ya está. A partir de ahí, las preguntas y los permisos de Claude salen en Pancho.
+That's it. From then on, Claude's questions and permission requests show up in Pancho.
 
-### Codex: un clic y tu visto bueno
+### Codex: one click and your approval
 
-Codex, por seguridad, no deja que ninguna app active hooks sin que tú los apruebes dentro de Codex. Pancho te guía con una ventana paso a paso:
+For safety, Codex doesn't let any app enable hooks unless you approve them inside Codex. Pancho walks you through it with a step-by-step window:
 
-1. Pulsa **Conectar** en la fila de Codex. Se abre la guía.
-2. Abre Codex (hay un botón «Abrir Codex» en la propia guía).
-3. Pulsa **Review hooks** (aparece junto al cuadro donde escribes; si no lo ves, entra en *Settings > Hooks*).
-4. Aprueba las entradas de Pancho: son las que terminan en `pancho_hook.py … --provider codex`.
-5. Escribe cualquier cosa en un chat nuevo. En cuanto Codex avise a Pancho, la guía muestra **✓ Listo**.
+1. Press **Conectar** (Connect) in the Codex row. The guide opens.
+2. Open Codex (the guide has an «Abrir Codex» button).
+3. Press **Review hooks** (it appears next to the box where you type; if you don't see it, go to *Settings > Hooks*).
+4. Approve Pancho's entries: they are the ones ending in `pancho_hook.py … --provider codex`.
+5. Type anything in a new chat. As soon as Codex notifies Pancho, the guide shows **✓ Listo** (Done).
 
-Solo se hace una vez. Puedes volver a ver los pasos con el botón «Ver los pasos de Codex…».
+You only do this once. You can see the steps again with the «Ver los pasos de Codex…» button.
 
-## Uso diario
+## Daily use
 
-- **Mover a Pancho**: arrástralo a donde quieras; las tarjetas se colocan a su alrededor.
-- **Contestar**: pulsa la tarjeta de la conversación que te espera, responde y pulsa Enviar.
-- **Quitar una conversación de la lista**: con la × de su tarjeta. Vuelve a salir sola si te hace una pregunta nueva.
-- **Menú de la barra de menús**: abrir la siguiente pregunta pendiente, actualizar conversaciones, mostrar u ocultar la lista, activar o quitar las animaciones, cambiar el tamaño de Pancho y salir.
+- **Move Pancho**: drag it wherever you like; the cards arrange themselves around it.
+- **Answer**: click the card of the conversation that's waiting for you, answer and press «Enviar» (Send).
+- **Remove a conversation from the list**: with the × on its card. It comes back by itself if it asks you a new question.
+- **Menu bar menu**: open the next pending question, refresh conversations, show or hide the list, turn animations on or off, change Pancho's size, and quit.
 
-### Ajustes (Configuración…)
+### Settings («Configuración…»)
 
-| Ajuste | Qué hace |
+| Setting (label in the app) | What it does |
 |---|---|
-| Abrir Pancho al iniciar sesión | Opcional y desactivado de fábrica. |
-| Abrir las preguntas en cuanto lleguen | Si está desactivado, Pancho solo avisa y la pregunta se abre al pulsar su tarjeta. |
-| Animaciones de Pancho | Para dejarlo quieto. |
-| Tamaño de Pancho | Pequeño, Normal o Grande. |
-| Esperar la respuesta | 5, 15 o 30 minutos. Pasado ese tiempo sin contestar en Pancho, la pregunta vuelve a su app. |
+| Open Pancho at login («Abrir Pancho al iniciar sesión») | Optional, off by default. |
+| Open questions as soon as they arrive («Abrir las preguntas en cuanto lleguen») | If off, Pancho only notifies you and the question opens when you click its card. |
+| Animations («Animaciones de Pancho») | Turn off to keep Pancho still. |
+| Size («Tamaño de Pancho») | Small, Normal or Large. |
+| Wait for the answer («Esperar la respuesta») | 5, 15 or 30 minutes. After that time without an answer in Pancho, the question goes back to its app. |
 
-## Privacidad y seguridad
+## Privacy and security
 
-- **Sin red, sin cuentas, sin claves.** Pancho no envía nada fuera de tu Mac.
-- **No lee tu historial.** No abre las transcripciones de tus conversaciones; solo recibe el aviso concreto de cada pregunta o permiso.
-- **Guarda lo mínimo.** El texto de las preguntas que gestiona y tus respuestas, en una carpeta privada de tu usuario.
-- **Respeta tu configuración.** Al conectar, solo añade sus propias entradas a `~/.claude/settings.json` y `~/.codex/hooks.json`, y antes guarda una copia de seguridad del archivo. Tus hooks y ajustes no se tocan.
-- **Si Pancho está cerrado, no pasa nada.** Los avisos salen en Claude y en Codex como siempre.
-- **No pulsa ni escribe en otras apps.** No necesita permisos de Accesibilidad ni de grabación de pantalla.
+- **No network, no accounts, no keys.** Pancho sends nothing outside your Mac.
+- **It doesn't read your history.** It doesn't open your conversation transcripts; it only receives the specific notification for each question or permission.
+- **It stores the minimum.** The text of the questions it handles and your answers, in a private folder of your user account.
+- **It respects your configuration.** When connecting, it only adds its own entries to `~/.claude/settings.json` and `~/.codex/hooks.json`, and it saves a backup of the file first. Your hooks and settings are left alone.
+- **If Pancho is closed, nothing breaks.** Prompts appear in Claude and Codex as usual.
+- **It doesn't click or type in other apps.** It needs no Accessibility or Screen Recording permissions.
 
-Un detalle de rendimiento: con Claude conectado, después de cada herramienta que usa el agente se ejecuta un proceso muy corto de Python (así Pancho se entera de que ya diste un permiso en la propia app de Claude).
+A performance note: with Claude connected, a very short Python process runs after each tool the agent uses (that's how Pancho learns you already granted a permission in the Claude app itself).
 
-## Desconectar y desinstalar
+## Disconnecting and uninstalling
 
-**Desconectar**: en Configuración…, pulsa **Desconectar** en Claude o en Codex. Se quitan solo las entradas que añadió Pancho; el resto de tu configuración queda igual.
+**Disconnect**: in «Configuración…», press **Desconectar** (Disconnect) for Claude or Codex. Only the entries Pancho added are removed; the rest of your configuration stays the same.
 
-**Desinstalar del todo** (después de desconectar):
+**Uninstall completely** (after disconnecting):
 
 ```bash
 rm -rf ~/Applications/Pancho.app
@@ -177,15 +182,15 @@ rm -rf ~/Applications/Pancho.app
 rm -rf ~/Library/Application\ Support/Pancho
 ```
 
-La segunda orden borra también las copias de seguridad que Pancho guardó de tu configuración.
+The second command also deletes the backups Pancho kept of your configuration.
 
-## Solución de problemas
+## Troubleshooting
 
-- **He conectado Claude y no sale nada.** Abre una conversación nueva: las que ya estaban abiertas cargaron su configuración antes de conectar.
-- **He conectado Codex y no sale nada.** Falta tu visto bueno dentro de Codex: Configuración… → «Ver los pasos de Codex…».
-- **«No encuentro Python 3 en este Mac».** Instala las herramientas de Apple con `xcode-select --install`.
-- **Codex se ha actualizado y Pancho ya no envía respuestas.** Pancho comprueba que la app de Codex sigue siendo compatible antes de enviarle nada; si no lo es, no envía y te pide contestar en Codex. Actualiza Pancho (mira «Actualizar» más arriba).
-- **Quiero comprobar el estado desde la terminal.**
+- **I connected Claude and nothing shows up.** Open a new conversation: the ones already open loaded their configuration before you connected.
+- **I connected Codex and nothing shows up.** Your approval inside Codex is missing: «Configuración…» → «Ver los pasos de Codex…».
+- **«No encuentro Python 3 en este Mac»** (Python 3 not found). Install Apple's tools with `xcode-select --install`.
+- **Codex was updated and Pancho no longer sends answers.** Pancho checks that the Codex app is still compatible before sending it anything; if it isn't, it sends nothing and asks you to answer in Codex. Update Pancho (see "Updating" above).
+- **I want to check the status from the terminal.**
 
   ```bash
   python3 ~/pancho/scripts/pancho_install.py status
@@ -195,40 +200,41 @@ La segunda orden borra también las copias de seguridad que Pancho guardó de tu
   python3 ~/pancho/scripts/pancho_install.py status --codex
   ```
 
-## Limitaciones conocidas
+## Known limitations
 
-Pancho es un proyecto personal y joven. Para que no haya sorpresas:
+Pancho is a young personal project. So there are no surprises:
 
-- Solo macOS.
-- Los permisos de Codex todavía se contestan en Codex.
-- La respuesta a una pregunta de Codex se entrega cuando Codex termina el turno en curso; mientras tanto aparece «En cola».
-- El envío de respuestas a Codex usa el canal interno de la app de escritorio de Codex, que no es una interfaz pública: una actualización de Codex puede romperlo. Si pasa, Pancho no envía nada y la pregunta se contesta en Codex.
-- «Permitir siempre» aplica la regla que propone Claude; con órdenes muy largas o compuestas, la regla puede ser tan concreta que no vuelva a servir.
-- Está probado con la app de escritorio de Claude (pestaña Code) y con la app de escritorio de Codex.
+- macOS only.
+- The app's interface is in Spanish.
+- Codex permissions are still answered in Codex.
+- The answer to a Codex question is delivered when Codex finishes its current turn; until then it shows «En cola» (Queued).
+- Sending answers to Codex uses the internal channel of the Codex desktop app, which is not a public interface: a Codex update can break it. If that happens, Pancho sends nothing and the question is answered in Codex.
+- "Always allow" applies the rule Claude proposes; with very long or compound commands, the rule can be so specific that it never matches again.
+- It has been tested with the Claude desktop app (Code tab) and the Codex desktop app.
 
-## Para desarrolladores
+## For developers
 
 ```
-app/Pancho/            App de macOS (Swift/AppKit)
-src/pancho_bridge/     Puente e instalador (Python, biblioteca estándar)
+app/Pancho/            macOS app (Swift/AppKit)
+src/pancho_bridge/     Bridge and installer (Python, standard library)
 scripts/               build_pancho.sh, pancho_install.py, pancho_hook.py
-design/…/assets/pancho Fotogramas de Pancho
-tests/                 Pruebas del puente y del instalador
+design/…/assets/pancho Pancho's animation frames
+tests/                 Bridge and installer tests
 ```
 
-Compilar sin instalar:
+Build without installing:
 
 ```bash
 zsh scripts/build_pancho.sh
 ```
 
-Pruebas (no tocan tu configuración real; usan carpetas temporales):
+Tests (they don't touch your real configuration; they use temporary folders):
 
 ```bash
 python3 -m unittest discover -s tests -p 'test_pancho*.py'
 ```
 
-Instalar o retirar los hooks desde la terminal, sin la ventana:
+Install or remove the hooks from the terminal, without the window:
 
 ```bash
 python3 scripts/pancho_install.py install
@@ -238,14 +244,14 @@ python3 scripts/pancho_install.py install
 python3 scripts/pancho_install.py uninstall
 ```
 
-Añade `--codex` para Codex.
+Add `--codex` for Codex.
 
-## Quién es Pancho
+## Who is Pancho
 
-Pancho es mi perro. Le quiero tanto que quise que me ayudara también a trabajar: ahora vigila a mis agentes y me avisa cuando me necesitan.
+Pancho is my dog. I love him so much that I wanted him to help me at work too: now he watches my agents and tells me when they need me.
 
-## Licencia
+## License
 
-[MIT](LICENSE). Úsalo, cámbialo y compártelo.
+[MIT](LICENSE). Use it, change it and share it.
 
-Pancho no está afiliado a Anthropic ni a OpenAI. «Claude» y «Codex» son marcas de sus respectivos dueños.
+Pancho is not affiliated with Anthropic or OpenAI. "Claude" and "Codex" are trademarks of their respective owners.
