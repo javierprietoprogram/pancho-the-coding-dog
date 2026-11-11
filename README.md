@@ -1,4 +1,4 @@
-# Pancho 🐾
+# Pancho, the coding dog 🐾
 
 **Una mascota flotante para macOS que te avisa cuando Claude Code o Codex necesitan algo de ti, y te deja contestar sin ir a buscar la ventana.**
 
@@ -64,21 +64,53 @@ Claude Code / Codex  ──(hook local)──▶  puente de Pancho (Python)  ─
 
 ## Instalación
 
-Tres comandos en la app Terminal:
+Hay dos formas. Las dos hacen lo mismo: descargan Pancho en `~/pancho`, lo compilan en tu Mac, lo dejan en `~/Applications/Pancho.app` y lo abren. No piden contraseña y no instalan servicios en segundo plano. Como la app se compila en tu propio equipo, macOS no muestra el aviso de «desarrollador no identificado».
+
+### Opción A: una línea en la Terminal
+
+Abre la app **Terminal**, pega esto y pulsa Intro:
 
 ```bash
-git clone https://github.com/javierprietoprogram/pancho.git
+git clone https://github.com/javierprietoprogram/pancho-the-coding-dog.git ~/pancho && ~/pancho/install.sh
 ```
+
+Si te dice que faltan las herramientas de Apple, ejecuta `xcode-select --install`, espera a que terminen de instalarse y repite la línea de arriba.
+
+### Opción B: que te lo instale tu agente
+
+Si no quieres abrir la Terminal, pega este texto en una conversación de la **app de escritorio de Claude (pestaña Code)** o de la **app de escritorio de Codex**. Tiene que ser la app de escritorio, en tu Mac: en la web o en una sesión en la nube no funciona, porque Pancho se instala en tu equipo.
+
+```text
+Instala Pancho en este Mac. Es una mascota flotante de código abierto que me avisa
+cuando Claude Code o Codex necesitan mi respuesta.
+Repositorio: https://github.com/javierprietoprogram/pancho-the-coding-dog
+
+Haz esto, en este orden:
+1. Comprueba que esto es macOS 13 o posterior y que `xcrun --find swiftc` funciona.
+   Si falla, dime que ejecute `xcode-select --install` y para ahí.
+2. Si no existe la carpeta ~/pancho, clona el repositorio en ella. Si ya existe,
+   entra y ejecuta `git pull`.
+3. Lee install.sh y explícame en una frase qué hace antes de ejecutarlo.
+4. Ejecuta `~/pancho/install.sh`. Compila la app, la copia a ~/Applications/Pancho.app
+   y la abre. Si tu entorno lo bloquea, pídeme permiso para ejecutarlo fuera del sandbox.
+5. Comprueba que ~/Applications/Pancho.app existe y que Pancho está abierto.
+
+No toques ~/.claude ni ~/.codex y no ejecutes pancho_install.py: la conexión la hago
+yo desde la ventana de Pancho. Al terminar, dime solo esto:
+- que pulse «Conectar» en Claude y/o en Codex en la ventana de Pancho;
+- que para Codex, además, apruebe los hooks de Pancho en «Review hooks»;
+- que abra una conversación nueva para que empiece a funcionar.
+```
+
+### Actualizar
+
+Pancho irá recibiendo mejoras. Para tener la última versión:
 
 ```bash
-cd pancho
+cd ~/pancho && git pull && ./install.sh
 ```
 
-```bash
-./install.sh
-```
-
-El instalador compila Pancho en tu Mac, lo deja en `~/Applications/Pancho.app` y lo abre. No pide contraseña y no instala servicios en segundo plano. Como la app se compila en tu propio equipo, macOS no muestra el aviso de «desarrollador no identificado».
+No hace falta volver a conectar Claude ni Codex.
 
 ## Conectar Claude y Codex
 
@@ -152,15 +184,15 @@ La segunda orden borra también las copias de seguridad que Pancho guardó de tu
 - **He conectado Claude y no sale nada.** Abre una conversación nueva: las que ya estaban abiertas cargaron su configuración antes de conectar.
 - **He conectado Codex y no sale nada.** Falta tu visto bueno dentro de Codex: Configuración… → «Ver los pasos de Codex…».
 - **«No encuentro Python 3 en este Mac».** Instala las herramientas de Apple con `xcode-select --install`.
-- **Codex se ha actualizado y Pancho ya no envía respuestas.** Pancho comprueba que la app de Codex sigue siendo compatible antes de enviarle nada; si no lo es, no envía y te pide contestar en Codex. Actualiza Pancho (`git pull` y `./install.sh`).
+- **Codex se ha actualizado y Pancho ya no envía respuestas.** Pancho comprueba que la app de Codex sigue siendo compatible antes de enviarle nada; si no lo es, no envía y te pide contestar en Codex. Actualiza Pancho (mira «Actualizar» más arriba).
 - **Quiero comprobar el estado desde la terminal.**
 
   ```bash
-  python3 scripts/pancho_install.py status
+  python3 ~/pancho/scripts/pancho_install.py status
   ```
 
   ```bash
-  python3 scripts/pancho_install.py status --codex
+  python3 ~/pancho/scripts/pancho_install.py status --codex
   ```
 
 ## Limitaciones conocidas
@@ -207,6 +239,10 @@ python3 scripts/pancho_install.py uninstall
 ```
 
 Añade `--codex` para Codex.
+
+## Quién es Pancho
+
+Pancho es mi perro. Le quiero tanto que quise que me ayudara también a trabajar: ahora vigila a mis agentes y me avisa cuando me necesitan.
 
 ## Licencia
 
