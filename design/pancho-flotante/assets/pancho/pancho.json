@@ -1,0 +1,35 @@
+{
+  "nombre": "Pancho",
+  "origen": "Fotogramas originales de Pancho (copia sin modificar)",
+  "celda": { "ancho": 192, "alto": 208, "formato": "PNG RGBA, fondo transparente" },
+  "escalaPantalla": 0.5,
+  "tamanoEnPantallaPt": { "ancho": 96, "alto": 104 },
+  "rutaFotograma": "<estado>/<NN>.png",
+  "notaTiempos": "Duraciones en ms, extraídas de los GIF de referencia (final/previews/states). 'pausa' es una espera aleatoria [min, max] sobre el fotograma 00 antes de repetir el ciclo; mantiene el movimiento discreto.",
+  "estados": {
+    "idle":          { "etiqueta": "En reposo",          "fotogramas": 6, "duraciones": [280,110,110,140,140,320],         "repeticion": "bucle", "pausa": [2600,5200] },
+    "running-right": { "etiqueta": "Hacia la derecha",   "fotogramas": 8, "duraciones": [120,120,120,120,120,120,120,220], "repeticion": "bucle" },
+    "running-left":  { "etiqueta": "Hacia la izquierda", "fotogramas": 8, "duraciones": [120,120,120,120,120,120,120,220], "repeticion": "bucle" },
+    "waving":        { "etiqueta": "Saludando",          "fotogramas": 4, "duraciones": [140,140,140,280],                 "repeticion": "una vez" },
+    "jumping":       { "etiqueta": "Saltando",           "fotogramas": 5, "duraciones": [140,140,140,140,280],             "repeticion": "una vez" },
+    "failed":        { "etiqueta": "Contratiempo",       "fotogramas": 8, "duraciones": [140,140,140,140,140,140,140,240], "repeticion": "una vez" },
+    "waiting":       { "etiqueta": "Esperando",          "fotogramas": 6, "duraciones": [150,150,150,150,150,260],         "repeticion": "bucle", "pausa": [1400,2400] },
+    "running":       { "etiqueta": "Trabajando",         "fotogramas": 6, "duraciones": [120,120,120,120,120,220],         "repeticion": "bucle", "pausa": [700,1600] },
+    "review":        { "etiqueta": "Revisando",          "fotogramas": 6, "duraciones": [150,150,150,150,150,280],         "repeticion": "bucle", "pausa": [1600,3000] }
+  },
+  "prioridad": [
+    "arrastre en movimiento → running-left / running-right según la dirección horizontal",
+    "animación puntual en curso (waving, jumping, failed)",
+    "panel abierto → review",
+    "alguna conversación pendiente (pregunta o permiso) → waiting",
+    "alguna conversación trabajando → running",
+    "nada de lo anterior → idle"
+  ],
+  "disparadores": {
+    "waving": "al arrancar, al llegar una pregunta o permiso nuevo, tras confirmarse un envío y al pulsar a Pancho sin nada pendiente",
+    "jumping": "cuando una conversación termina",
+    "failed": "cuando falla un envío o una conversación termina con error"
+  },
+  "silencio": "Con animaciones silenciadas o «Reducir movimiento» del sistema: fotograma 00 fijo del estado y sin animaciones puntuales. El indicador y el contador siguen visibles.",
+  "atlasAlternativo": "../referencia/spritesheet-extended.png + ../referencia/atlas-manifest.json (8×11 celdas; filas 9–10 son direcciones de mirada, no usadas en este diseño)"
+}
