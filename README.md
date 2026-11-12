@@ -26,7 +26,7 @@ Pancho lives in a corner of your screen, above everything else (full-screen apps
 
 - **It tells you right away.** When an agent asks you a question or requests permission, Pancho perks up and a card appears with the project and the conversation that needs you.
 - **You answer from there.** Click the card, pick an option or type your answer, and press «Enviar» (Send). The agent carries on in its original conversation, as if you had answered in its own window.
-- **All your conversations at a glance.** One card per running conversation, with its status: working, waiting for you, or done.
+- **All your conversations at a glance.** One card per running conversation, with its status: working, waiting for you, or done. When a conversation finishes it stays in green as «Terminada» until you remove it with its ×. Click a card to jump to that conversation: its thread in Codex, its session in the Claude app, or the terminal it runs in.
 - **Several at once, never mixed up.** Each answer goes back to exactly the conversation that asked.
 - **Nothing gets lost.** If you close the card or don't answer, the question goes back to its app and you answer it there. Pancho never answers for you and never resends anything on its own.
 
@@ -146,6 +146,7 @@ You only do this once. You can see the steps again with the «Ver los pasos de C
 - **Answer**: click the card of the conversation that's waiting for you, answer and press «Enviar» (Send).
 - **Remove a conversation from the list**: with the × on its card. It comes back by itself if it asks you a new question.
 - **Menu bar menu**: open the next pending question, refresh conversations, show or hide the list, turn animations on or off, change Pancho's size, and quit.
+- **Agents panel**: the fourth button on the bar opens a panel with your Claude Code and Codex conversations that are working and the subagents each one launches, nested underneath (running first, finished ones dimmed with a ✓ for half an hour). Click a row for its details (type, short title, project, conversation, start and duration) or to open the project folder. Claude gives each subagent a short title. Codex subagents show their nickname and task name, read from Codex's own local index (so they appear even if they started before you connected Pancho). If you connected Pancho before this panel existed, the setup window shows «Hay avisos nuevos de Pancho · Actualizar»: press it once for Claude and once for Codex (Codex asks you to approve the new entries again).
 
 ### Settings («Configuración…»)
 
@@ -161,7 +162,7 @@ You only do this once. You can see the steps again with the «Ver los pasos de C
 
 - **No network, no accounts, no keys.** Pancho sends nothing outside your Mac.
 - **It doesn't read your history.** It doesn't open your conversation transcripts; it only receives the specific notification for each question or permission.
-- **It stores the minimum.** The text of the questions it handles and your answers, in a private folder of your user account.
+- **It stores the minimum.** The text of the questions it handles and your answers, in a private folder of your user account. For the agents panel, only the type and short title of each subagent, its project and its start and end times — never what it was asked or what it answered. For Claude it also keeps where each conversation lives (the Claude app session id and which terminal app), so a click can take you there. For Codex it also reads, read-only, the subagent list in Codex's local index (`~/.codex/state_*.sqlite`): parent, nickname, task name, folder and times only, never conversation text.
 - **It respects your configuration.** When connecting, it only adds its own entries to `~/.claude/settings.json` and `~/.codex/hooks.json`, and it saves a backup of the file first. Your hooks and settings are left alone.
 - **If Pancho is closed, nothing breaks.** Prompts appear in Claude and Codex as usual.
 - **It doesn't click or type in other apps.** It needs no Accessibility or Screen Recording permissions.

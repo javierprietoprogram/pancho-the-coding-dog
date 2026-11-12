@@ -95,23 +95,6 @@ struct RequestState {
     }
 }
 
-struct SessionInfo: Equatable {
-    let provider: String
-    let sessionId: String
-    let cwd: String?
-    let project: String?
-    let firstSeen: Double
-    let lastEventAt: Double
-    let activity: String
-
-    var id: String { provider + "|" + sessionId }
-    var projectName: String {
-        if let p = project, !p.isEmpty { return p }
-        if let c = cwd, !c.isEmpty { return (c as NSString).lastPathComponent }
-        return "Sin proyecto"
-    }
-}
-
 struct Draft: Equatable {
     var selections: [String: [Int]] = [:]
     var other: [String: String] = [:]
@@ -255,6 +238,7 @@ final class Store {
     /// Solicitudes ya descartadas: mientras state.json no cambie no se vuelven a mirar.
     private var dismissedCache: [String: (mtime: Date, record: RequestRecord)] = [:]
     private var sessionCache: [String: (mtime: Date, info: SessionInfo?)] = [:]
+    private var agentCache: [String: (mtime: Date, info: SubagentInfo?)] = [:]
 
     init() {
         let env = ProcessInfo.processInfo.environment["PANCHO_HOME"].flatMap { $0.isEmpty ? nil : $0 }
@@ -270,6 +254,7 @@ final class Store {
     var appDir: URL { v1.appendingPathComponent("app", isDirectory: true) }
     var requestsDir: URL { v1.appendingPathComponent("requests", isDirectory: true) }
     var sessionsDir: URL { v1.appendingPathComponent("sessions", isDirectory: true) }
+    var agentsDir: URL { v1.appendingPathComponent("agents", isDirectory: true) }
 
     // MARK: Escritura atómica
 
@@ -444,7 +429,9 @@ final class Store {
                 info = SessionInfo(provider: provider, sessionId: sid, cwd: o["cwd"] as? String, project: o["project"] as? String,
                                    firstSeen: (o["first_seen"] as? NSNumber)?.doubleValue ?? 0,
                                    lastEventAt: (o["last_event_at"] as? NSNumber)?.doubleValue ?? 0,
-                                   activity: (o["activity"] as? String) ?? "observed")
+                                   activity: (o["activity"] as? String) ?? "observed",
+                                   hostSession: o["host_session"] as? String, entrypoint: o["entrypoint"] as? String,
+                                   termProgram: o["term_program"] as? String)
             } else if let c = sessionCache[name] {
                 info = c.info             // lectura a medias: se conserva la anterior sin fijar el mtime
                 if let i = info { out.append(i) }
@@ -454,6 +441,34 @@ final class Store {
             if let i = info { out.append(i) }
         }
         sessionCache = sessionCache.filter { seen.contains($0.key) }
+        return out
+    }
+
+    /// Subagentes (v1/agents, los escribe el puente). Los pendientes `pending-*.json` no son subagentes.
+    func scanAgents() -> [SubagentInfo] {
+        guard let files = try? FileManager.default.contentsOfDirectory(at: agentsDir, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles]) else {
+            agentCache = [:]
+            return []
+        }
+        var out: [SubagentInfo] = []
+        var seen = Set<String>()
+        for f in files where f.pathExtension == "json" && !f.lastPathComponent.hasPrefix("pending-") {
+            let name = f.lastPathComponent
+            guard let mt = mtime(f) else { continue }
+            seen.insert(name)
+            if let c = agentCache[name], c.mtime == mt {
+                if let info = c.info { out.append(info) }
+                continue
+            }
+            guard let data = try? Data(contentsOf: f), let obj = try? JSONSerialization.jsonObject(with: data) else {
+                if let i = agentCache[name]?.info { out.append(i) }   // lectura a medias: se conserva la anterior
+                continue
+            }
+            let info = subagentInfo(from: obj)
+            agentCache[name] = (mt, info)
+            if let i = info { out.append(i) }
+        }
+        agentCache = agentCache.filter { seen.contains($0.key) }
         return out
     }
 
@@ -494,6 +509,20 @@ final class Store {
         guard let data = try? Data(contentsOf: hiddenSessionsURL),
               let o = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return [:] }
         return o.compactMapValues { ($0 as? NSNumber)?.doubleValue }
+    }
+
+    var finishedSessionsURL: URL { appDir.appendingPathComponent("finished-sessions.json") }
+
+    /// Conversaciones terminadas que siguen en la lista (id → cuándo terminaron). Las escribe la app.
+    func loadFinishedSessions() -> [String: Double] {
+        guard let data = try? Data(contentsOf: finishedSessionsURL),
+              let o = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return [:] }
+        return o.compactMapValues { ($0 as? NSNumber)?.doubleValue }
+    }
+
+    func saveFinishedSessions(_ finished: [String: Double]) {
+        do { try ensureDir(v1); try ensureDir(appDir); try atomicWrite(finished, to: finishedSessionsURL) }
+        catch { NSLog("Pancho: finished-sessions.json no escrito: \(error.localizedDescription)") }
     }
 
     func saveHiddenSessions(_ hidden: [String: Double]) {

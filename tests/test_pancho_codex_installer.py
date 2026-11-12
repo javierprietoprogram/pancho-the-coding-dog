@@ -24,7 +24,8 @@ INSTALL = ROOT / 'scripts' / 'pancho_install.py'
 sys.path.insert(0, str(ROOT / 'src'))
 from pancho_bridge import codex_install, installer  # noqa: E402
 
-EVENTS = ['SessionStart', 'UserPromptSubmit', 'PreToolUse', 'PostToolUse', 'Stop', 'SessionEnd']
+EVENTS = ['SessionStart', 'UserPromptSubmit', 'PreToolUse', 'PostToolUse', 'Stop', 'SessionEnd',
+          'SubagentStart', 'SubagentStop']
 POC_OWNER = 'desktop-questions-codex-poc-v1'
 FOREIGN = (b'{\n "hooks": {"PreToolUse": [{"matcher": "^Bash$", "hooks": [{"type": "command", '
            b'"command": "echo ajeno", "timeout": 5}]}],\n  "Stop": [{"hooks": [{"type": "command", '
@@ -166,6 +167,31 @@ class PanchoCodexInstallerTest(unittest.TestCase):
         self.assertEqual(self.hooks_path.read_bytes(), before)  # Mismo hash: no hay que revisar otra vez.
         self.assertNotEqual(os.readlink(str(self.root / 'bridge')), target)
         self.assertEqual({e: len(v) for e, v in self.ours().items() if v}, {e: 1 for e in EVENTS})
+        code, removed = self.cli('uninstall')
+        self.assertEqual(code, 0, removed)
+        self.assertEqual(json.loads(self.hooks_path.read_text()), json.loads(FOREIGN))
+
+    def test_agents_panel_upgrade_extends_codex_and_asks_review_only_for_new_entries(self):
+        self.hooks_path.write_bytes(FOREIGN)
+        old_events = tuple(e for e in codex_install.EVENTS if e[0] not in ('SubagentStart', 'SubagentStop'))
+        with mock.patch.object(codex_install, 'EVENTS', old_events):
+            codex_install.install(home=self.root, hooks_path=self.hooks_path, poc_root=self.poc,
+                                  pin_source=self.pin_source, app_path=self.app)
+        code, status = self.cli('status')
+        self.assertEqual(code, 0, status)
+        self.assertEqual(sorted(status['missing_events']), ['SubagentStart', 'SubagentStop'])
+        before = self.hooks_path.read_bytes()
+        code, result = self.cli('install')
+        self.assertEqual(code, 0, result)
+        self.assertEqual(sorted(result['extended_events']), ['SubagentStart', 'SubagentStop'])
+        self.assertEqual(sorted(result['review']['entries']), ['SubagentStart', 'SubagentStop'])
+        self.assertEqual(Path(result['extensions'][-1]['backup']).read_bytes(), before)
+        data = json.loads(self.hooks_path.read_text())
+        self.assertEqual(data['hooks']['Stop'][0], json.loads(FOREIGN)['hooks']['Stop'][0])  # Lo ajeno, intacto.
+        self.assertEqual({e: len(v) for e, v in self.ours().items() if v}, {e: 1 for e in EVENTS})
+        code, again = self.cli('install')
+        self.assertEqual((code, again['review']['entries']), (0, []))
+        self.assertEqual(self.cli('status')[1]['missing_events'], [])
         code, removed = self.cli('uninstall')
         self.assertEqual(code, 0, removed)
         self.assertEqual(json.loads(self.hooks_path.read_text()), json.loads(FOREIGN))

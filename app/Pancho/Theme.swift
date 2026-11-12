@@ -6,7 +6,7 @@ enum M {
     static var petScale: CGFloat = Prefs.size.scale
     static var petW: CGFloat { (96 * petScale).rounded() }
     static var petH: CGFloat { (104 * petScale).rounded() }
-    static let barW: CGFloat = 120, barH: CGFloat = 40, barSimH: CGFloat = 52
+    static let barW: CGFloat = 159, barH: CGFloat = 40, barSimH: CGFloat = 52
     static let barOverlap: CGFloat = 4
     static let gapBarList: CGFloat = 12
     static let cardW: CGFloat = 330, cardH: CGFloat = 56, cardGap: CGFloat = 10
@@ -142,11 +142,11 @@ final class GlassView: NSView {
 
 // MARK: - Iconos (trazados de los SVG del prototipo)
 
-enum Icon { case pencil, refresh, wave, waveOff, chevronDown, chevronRight, x, check, question, bang }
+enum Icon { case pencil, refresh, wave, waveOff, chevronDown, chevronRight, x, check, question, bang, dashboard }
 
 extension Icon {
     var box: CGFloat {
-        switch self { case .pencil, .refresh, .wave, .waveOff, .chevronDown: return 24; default: return 16 }
+        switch self { case .pencil, .refresh, .wave, .waveOff, .chevronDown, .dashboard: return 24; default: return 16 }
     }
     /// Dibuja en un contexto invertido (y hacia abajo).
     func draw(in r: NSRect, color: NSColor, rotated: Bool = false) {
@@ -204,6 +204,12 @@ extension Icon {
             p.line(to: P(8, 9.5))
             p.lineWidth = 1.7; p.lineCapStyle = .round; p.stroke()
             dot(P(8, 11.6), 0.95)
+        case .dashboard:
+            // Tablero: un panel alto y dos pequeños.
+            for r in [NSRect(x: 4.5, y: 4.5, width: 6.5, height: 15), NSRect(x: 14, y: 4.5, width: 5.5, height: 5.5),
+                      NSRect(x: 14, y: 13, width: 5.5, height: 6.5)] {
+                let p = NSBezierPath(roundedRect: r, xRadius: 1.6, yRadius: 1.6); p.lineWidth = 1.8; p.stroke()
+            }
         case .bang:
             let c = NSBezierPath(ovalIn: NSRect(x: 1.7, y: 1.7, width: 12.6, height: 12.6)); c.lineWidth = 1.8; c.stroke()
             stroke([P(8, 4.8), P(8, 8.8)], 1.8)

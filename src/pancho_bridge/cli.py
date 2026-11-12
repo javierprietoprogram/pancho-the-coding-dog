@@ -20,11 +20,13 @@ import sys
 import time
 
 from . import OWNER, VERSION
-from . import claude, sessions
+from . import agents, claude, sessions
 from .store import LockBusy, Store, atomic_json, default_root, read_json, resolve_root
 
 HOOK_EVENTS = ('SessionStart', 'UserPromptSubmit', 'PreToolUse', 'PostToolUse',
-               'PostToolUseFailure', 'Stop', 'StopFailure', 'SessionEnd', 'PermissionRequest')
+               'PostToolUseFailure', 'Stop', 'StopFailure', 'SessionEnd', 'PermissionRequest',
+               'SubagentStart', 'SubagentStop')
+SUBAGENT_EVENTS = ('SubagentStart', 'SubagentStop')
 
 
 # --- hook ------------------------------------------------------------------------
@@ -80,6 +82,10 @@ def run_hook(argv, stdin=None):
         if name not in HOOK_EVENTS:
             return 0
         now = time.time()
+        if name in SUBAGENT_EVENTS:
+            stage = 'agents'
+            (agents.start if name == 'SubagentStart' else agents.stop)(store, claude.PROVIDER, payload, now)
+            return 0
         stage = 'session'
         question = (name == 'PreToolUse' and payload.get('tool_name') == claude.TOOL) \
             or name == claude.PERMISSION_EVENT
@@ -90,7 +96,9 @@ def run_hook(argv, stdin=None):
                 raise  # Salida silenciosa (exit 0); queda una línea en el registro.
             # Una pregunta no se pierde por el registro de actividad: se sigue.
         stage = name
-        if name == 'PreToolUse' and payload.get('tool_name') == claude.NEXT_TOOL:
+        if name == 'PreToolUse' and payload.get('tool_name') in agents.AGENT_TOOLS:
+            agents.note_launch(store, payload, now)  # Solo el título corto; nunca espera ni responde.
+        elif name == 'PreToolUse' and payload.get('tool_name') == claude.NEXT_TOOL:
             claude.note_next_step(store, payload, now)
         elif name == 'PreToolUse':
             claude.pre_tool_use(store, payload, _emit, now, parent_pid)
@@ -98,8 +106,12 @@ def run_hook(argv, stdin=None):
             claude.permission_request(store, payload, _emit, now, parent_pid)
         elif name in ('PostToolUse', 'PostToolUseFailure'):
             claude.post_tool_use(store, payload, failure=(name == 'PostToolUseFailure'))
+            if name == 'PostToolUse' and payload.get('tool_name') in agents.AGENT_TOOLS:
+                agents.confirm(store, payload, now)
         if name in claude.SWEEP_EVENTS:
             claude.session_event(store, payload, name)
+        if name == 'SessionEnd':
+            agents.end_session(store, claude.PROVIDER, payload, now)
         if name == 'UserPromptSubmit' and isinstance(payload.get('session_id'), str) and payload['session_id']:
             claude._drop_next_note(store, payload['session_id'])
         if name == 'Stop':
@@ -117,9 +129,17 @@ def _run_codex_hook(store, payload, args):
     """Codex: registra y sale; nunca escribe en stdout (sería contexto del modelo)."""
     from . import codex  # Import diferido: el hook Claude no paga su coste de arranque.
     name = payload.get('hook_event_name')
+    now = time.time()
+    if name in SUBAGENT_EVENTS:
+        (agents.start if name == 'SubagentStart' else agents.stop)(store, codex.PROVIDER, payload, now)
+        return 0
     if name not in codex.HOOK_EVENTS:
         return 0
-    now = time.time()
+    if payload.get('agent_id'):
+        # Evento dentro de un subagente: no es una conversación tuya (ya sale en el panel de agentes).
+        for key in codex.handle(store, payload, now):
+            spawn_sender(store.root, key, args.get('codex_ipc_socket'))
+        return 0
     try:
         sessions.record(store, codex.PROVIDER, payload, now)
     except LockBusy as exc:

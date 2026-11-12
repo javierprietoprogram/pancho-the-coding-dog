@@ -44,6 +44,38 @@ final class DebugHooks {
         case "reply", "refresh": c.barView.refresh.onClick?()
         case "collapse": c.toggleCollapsed()
         case "mute": c.toggleMute()
+        case "dashboard", "agents": c.toggleAgentsPanel()
+        case "setup": c.setup.show()
+        case "setup-snapshot":
+            // Configuración con su estado real (solo lee el estado de la conexión; no instala nada).
+            if let w = c.setup.window, let img = image(of: w) {
+                try? NSBitmapImageRep(cgImage: img).representation(using: .png, properties: [:])?
+                    .write(to: dir.appendingPathComponent((parts.count > 1 ? parts[1] : "setup") + ".png"))
+                log("setup-snapshot")
+            }
+            // Textos visibles (botones y etiquetas), en orden, para leer el estado sin captura de pantalla.
+            func walk(_ v: NSView, _ out: inout [String]) {
+                if let b = v as? NSButton, !v.isHidden { out.append("[\(b.title)\(b.isEnabled ? "" : " (inactivo)")]") }
+                else if let t = v as? NSTextField, !v.isHidden, !t.stringValue.isEmpty { out.append(t.stringValue) }
+                v.subviews.forEach { walk($0, &out) }
+            }
+            var texts: [String] = []
+            if let v = c.setup.window?.contentView { walk(v, &texts) }
+            log("setup-texts " + texts.joined(separator: " | "))
+        case "dash-snapshot": dashSnapshot(parts.count > 1 ? parts[1] : "dashboard")
+        case "dash-esc":
+            if let e = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [], timestamp: 0, windowNumber: c.agentsPanel.window.windowNumber,
+                                        context: nil, characters: "\u{1b}", charactersIgnoringModifiers: "\u{1b}", isARepeat: false, keyCode: 53) {
+                NSApp.postEvent(e, atStart: false)
+            }
+        case "dash-frame":
+            // Mueve y cambia el tamaño por código (comprueba que la ventana lo admite y que la página se adapta).
+            let n = line.split(separator: " ").dropFirst().compactMap { Double($0) }
+            if n.count == 4 { c.agentsPanel.window.setFrame(NSRect(x: n[0], y: n[1], width: n[2], height: n[3]), display: true) }
+        case "dash-js":
+            // Evalúa JS en la página del panel de agentes (para pulsar filas y botones en las capturas).
+            let code = parts.dropFirst().joined(separator: " ")
+            c.agentsPanel.web.evaluateJavaScript(code) { [weak self] r, e in self?.log("dash-js → \(r.map { "\($0)" } ?? "nil") \(e.map { "\($0)" } ?? "")") }
         case "card":
             if parts.count > 1, let n = Int(parts[1]), n < c.order.count { c.cardClicked(c.order[n]) }
         case "option":
@@ -86,6 +118,33 @@ final class DebugHooks {
         return ctx.makeImage()
     }
 
+    /// Captura del panel de agentes (la página web no se puede leer con las capas de la ventana).
+    func dashSnapshot(_ name: String) {
+        let web = c.agentsPanel.web
+        web.takeSnapshot(with: nil) { [weak self] img, err in
+            guard let self = self, let img = img, let cg = img.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
+                self?.log("dash-snapshot \(name): sin imagen \(err.map { "\($0)" } ?? "")"); return
+            }
+            let w = cg.width, h = cg.height
+            guard let ctx = CGContext(data: nil, width: w, height: h, bitsPerComponent: 8, bytesPerRow: 0, space: CGColorSpaceCreateDeviceRGB(),
+                                      bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return }
+            // Fondo neutro: el cristal de la ventana no forma parte de la página.
+            ctx.setFillColor(NSColor(hex: 0xE9ECF2).cgColor); ctx.fill(CGRect(x: 0, y: 0, width: w, height: h))
+            ctx.draw(cg, in: CGRect(x: 0, y: 0, width: w, height: h))
+            if let out = ctx.makeImage() {
+                try? NSBitmapImageRep(cgImage: out).representation(using: .png, properties: [:])?.write(to: self.dir.appendingPathComponent(name + ".png"))
+            }
+            let report: [String: Any] = ["frame": NSStringFromRect(self.c.agentsPanel.window.frame), "visible": self.c.agentsPanel.isOpen,
+                                         "isKey": self.c.agentsPanel.window.isKeyWindow, "isMovable": self.c.agentsPanel.window.isMovable,
+                                         "isResizable": self.c.agentsPanel.window.isResizable, "isZoomable": self.c.agentsPanel.window.isZoomable,
+                                         "badge": self.c.barView.agents.mini.isHidden ? "" : self.c.barView.agents.toolTip ?? ""]
+            if let data = try? JSONSerialization.data(withJSONObject: report, options: [.prettyPrinted, .sortedKeys]) {
+                try? data.write(to: self.dir.appendingPathComponent(name + ".json"))
+            }
+            self.log("dash-snapshot \(name)")
+        }
+    }
+
     func snapshot(_ name: String) {
         let wins: [(String, NSWindow)] = [("lista", c.listWindow), ("barra", c.barWindow), ("panel", c.panel.window), ("pancho", c.petWindow)]
         let visible = wins.filter { $0.1.isVisible }
@@ -122,6 +181,7 @@ final class DebugHooks {
                 ctx.draw(img, in: CGRect(x: f.minX - box.minX, y: f.minY - box.minY, width: f.width, height: f.height))
             }
         }
+        report["agentsTip"] = c.barView.agents.toolTip ?? ""
         report["mode"] = c.mode == .down ? "down" : "up"
         report["order"] = c.order
         report["panelPhase"] = "\(c.panel.phase)"

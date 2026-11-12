@@ -702,8 +702,10 @@ class PanchoHookTest(unittest.TestCase):
             path = next((self.home / 'v1' / 'sessions').glob('*.json'))
             record = json.loads(path.read_text())
             self.assertEqual(record['activity'], activity, name)
+        # Claude añade solo de dónde viene la conversación (lista blanca; ver test_pancho_session_origin).
         self.assertEqual(set(record), {'provider', 'session_id', 'cwd', 'project', 'first_seen',
-                                       'last_event', 'last_event_at', 'activity'})
+                                       'last_event', 'last_event_at', 'activity',
+                                       'host_session', 'entrypoint', 'term_program'})
         self.assertEqual((record['project'], record['provider']), ('mi proyecto', 'claude'))
         self.run_hook(self.ask())  # App cerrada: solicitud gestionada liberada.
         for file in self.home.rglob('*'):

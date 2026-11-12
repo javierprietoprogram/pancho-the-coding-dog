@@ -84,7 +84,7 @@ enum InstallerRunner {
     }
 }
 
-private enum LinkState { case checking, missing, off, on, broken, test }
+private enum LinkState { case checking, missing, off, on, broken, outdated, test }
 
 private final class ConnectionRow: NSView {
     let dot = NSView()
@@ -131,6 +131,7 @@ private final class ConnectionRow: NSView {
         case .off: text = "Sin conectar"; enabled = true
         case .on: color = .systemGreen; text = "Conectado"; label = "Desconectar"; enabled = true
         case .broken: color = .systemOrange; text = "Conexión incompleta"; label = "Reparar"; enabled = true
+        case .outdated: color = .systemBlue; text = "Hay avisos nuevos de Pancho"; label = "Actualizar"; enabled = true
         }
         if busy { text = "Un momento…"; enabled = false }
         dot.layer?.backgroundColor = color.cgColor
@@ -273,7 +274,7 @@ private final class CodexGuide: NSObject {
 
 final class SetupWindow: NSObject, NSWindowDelegate {
     private unowned let c: Controller
-    private var window: NSWindow?
+    private(set) var window: NSWindow?
     private let claude = ConnectionRow(name: "Claude")
     private let codex = ConnectionRow(name: "Codex")
     private let loginBox = NSButton(checkboxWithTitle: "Abrir Pancho al iniciar sesión", target: nil, action: nil)
@@ -432,6 +433,10 @@ final class SetupWindow: NSObject, NSWindowDelegate {
         let whole = !entries.isEmpty && entries.values.allSatisfy { ($0 as? String) == "presente" }
             && (r.json["bridge_present"] as? Bool) != false && (r.json["python_present"] as? Bool) != false
         if let pin = r.json["pin_check"] as? String, pin != "ok" { return .broken }
+        // Versión nueva de Pancho con avisos nuevos (p. ej. los del panel de agentes): se ofrece actualizar.
+        if whole, let missing = r.json["missing_events"] as? [Any], !missing.isEmpty { return .outdated }
+        // Mismos avisos pero código del puente más nuevo en esta versión de Pancho: «Actualizar» lo vuelve a copiar.
+        if whole, (r.json["bridge_outdated"] as? Bool) == true { return .outdated }
         return whole ? .on : .broken
     }
 
@@ -445,7 +450,7 @@ final class SetupWindow: NSObject, NSWindowDelegate {
                 if let s = self.linkState(r) {
                     if isCodex {
                         if let n = ((r.json["review"] as? [String: Any])?["entries"] as? [Any])?.count, n > 0 { self.codexEntries = n }
-                        self.guideButton.isEnabled = s == .on || s == .broken
+                        self.guideButton.isEnabled = s == .on || s == .broken || s == .outdated
                     }
                     row.state = (s == .off && !self.detected(codex: isCodex)) ? .missing : s
                 } else {

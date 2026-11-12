@@ -21,8 +21,10 @@ rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources" build/module-cache
 /usr/bin/xcrun swiftc -O -swift-version 5 -module-cache-path "$PWD/build/module-cache" \
   -target "$(uname -m)-apple-macos13.0" "${FLAGS[@]}" \
-  app/Pancho/*.swift -o "$APP/Contents/MacOS/Pancho" -framework AppKit -framework QuartzCore
+  app/Pancho/*.swift -o "$APP/Contents/MacOS/Pancho" -framework AppKit -framework QuartzCore -framework WebKit
 /bin/cp -R "$SPRITES" "$APP/Contents/Resources/pancho"
+# Página del panel de agentes (la muestra la propia app; no accede a la red).
+/bin/cp -R app/Pancho/dashboard "$APP/Contents/Resources/dashboard"
 # Instalador dentro de la app (ventana de configuración): copia del puente sin cachés.
 BR="$APP/Contents/Resources/bridge-src"
 mkdir -p "$BR"

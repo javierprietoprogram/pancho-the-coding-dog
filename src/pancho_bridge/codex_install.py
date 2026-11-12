@@ -46,6 +46,8 @@ EVENTS = (  # (evento, matcher, timeout en segundos)
     ('PostToolUse', MATCHER, 10),
     ('Stop', None, 30),
     ('SessionEnd', None, 3),   # Máximo documentado: 3 s.
+    ('SubagentStart', None, 10),  # Panel de agentes: inicio y fin de cada subagente.
+    ('SubagentStop', None, 10),
 )
 APP_PATH = '/Applications/ChatGPT.app'
 MANIFEST = 'codex-manifest.json'
@@ -300,6 +302,15 @@ def install(home=None, hooks_path=None, poc_root=None, migrate=False, python=Non
         if previous and previous.get('active'):
             if previous['hooks_path'] != str(hooks_path):
                 raise InstallError('Ya instalado en otra configuración: ' + previous['hooks_path'])
+            missing = _installer.missing_events(previous, entries, hooks)
+            if missing and original_bytes is not None:
+                # Versión nueva de Pancho con eventos nuevos: se amplía (copia previa) y Codex pide
+                # el visto bueno solo de esas entradas.
+                result = _installer._extend(root, hooks_path, python, data, original_bytes, hooks, previous,
+                                            entries, missing, manifest_path=_manifest_path(root))
+                result['pin'] = previous['pin'] = _install_pin(root, pin_source, poc_root, app_path)
+                atomic_json(_manifest_path(root), previous)
+                return dict(result, review=_review(result['extended_events']), pin_check=pin_check(root))
             if not _installer.same_installation(previous, entries, hooks):
                 raise InstallError('La instalación Codex existente es distinta o fue modificada; '
                                    'ejecuta uninstall --codex primero')
@@ -437,6 +448,9 @@ def status(home=None, hooks_path=None, poc_root=None):
                       send_argv=manifest.get('send_argv'), poc_migrations=manifest.get('poc_migrations', []),
                       review=_review([e for e, v in entries.items() if v == 'presente'] if manifest.get('active') else []),
                       pin_check=pin_check(root))
+        if manifest.get('active'):
+            result['missing_events'] = _installer.pending_events(manifest, hooks, build_entries)
+            result['bridge_outdated'] = _installer.bridge_outdated(root)
         if manifest.get('active') and not present:
             result['warnings'].append('El intérprete de los hooks Codex no existe: ' + str(python.get('path')))
         if manifest.get('active') and result['pin_check'] != 'ok':

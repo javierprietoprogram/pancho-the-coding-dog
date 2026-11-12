@@ -17,7 +17,7 @@ sys.path.insert(0, str(ROOT / 'src'))
 from pancho_bridge import installer  # noqa: E402
 
 EVENTS = ['SessionStart', 'UserPromptSubmit', 'PreToolUse', 'PostToolUse', 'PostToolUseFailure', 'Stop',
-          'StopFailure', 'SessionEnd', 'PermissionRequest']
+          'StopFailure', 'SessionEnd', 'PermissionRequest', 'SubagentStart', 'SubagentStop']
 PYTHON313 = Path('/opt/homebrew/opt/python@3.13/bin/python3.13')
 FOREIGN = (b'{\n    "model": "opus",\n  "permissions": {"allow": ["Bash(ls)"]},\n'
            b'  "hooks": {"PreToolUse": [{"matcher": "Bash", "hooks": [{"type": "command", "command": "echo ajeno"}]}],\n'
@@ -66,7 +66,7 @@ class PanchoInstallerTest(unittest.TestCase):
             self.assertIn('--owner pancho-v1', hook['command'])
             self.assertTrue(hook['command'].endswith(' || true'))
             if event == 'PreToolUse':
-                self.assertEqual(ours[event][0]['matcher'], '^(AskUserQuestion|mcp__ccd_turn__wrap_up)$')
+                self.assertEqual(ours[event][0]['matcher'], installer.PRE_MATCHER)
             else:
                 self.assertNotIn('matcher', ours[event][0])
         self.assertEqual(result['entries'], {e: self.hooks()[e][0] for e in EVENTS})
@@ -296,6 +296,39 @@ class PanchoInstallerTest(unittest.TestCase):
         self.assertEqual(self.cli('uninstall')[0], 0)
         self.assertFalse(self.settings.exists())
 
+    def test_agents_panel_upgrade_adds_subagent_events_and_agent_matcher(self):
+        # Instalación de antes del panel de agentes: sin eventos de subagente ni Agent en PreToolUse.
+        old_events = tuple(('PreToolUse', '^(AskUserQuestion|mcp__ccd_turn__wrap_up)$', 1860) if e[0] == 'PreToolUse' else e
+                           for e in installer.EVENTS if e[0] not in ('SubagentStart', 'SubagentStop'))
+        with mock.patch.object(installer, 'EVENTS', old_events):
+            installer.install(home=self.root, settings=self.settings, poc_root=self.poc)
+        code, status = self.cli('status')
+        self.assertEqual(code, 0, status)
+        self.assertEqual(sorted(status['missing_events']), ['PreToolUse', 'SubagentStart', 'SubagentStop'])
+        before = self.settings.read_bytes()
+        code, result = self.cli('install')
+        self.assertEqual(code, 0, result)
+        self.assertEqual(sorted(result['extended_events']), ['PreToolUse', 'SubagentStart', 'SubagentStop'])
+        self.assertEqual(Path(result['extensions'][-1]['backup']).read_bytes(), before)
+        pre = self.ours()['PreToolUse'][0]
+        self.assertIn('Agent', pre['matcher'])
+        self.assertIn('AskUserQuestion', pre['matcher'])
+        self.assertEqual({e: len(v) for e, v in self.ours().items() if v}, {e: 1 for e in EVENTS})
+        self.assertEqual(self.cli('status')[1]['missing_events'], [])
+
+    def test_old_bridge_copy_is_reported_and_refreshed_without_touching_settings(self):
+        # Pancho nuevo con el mismo conjunto de avisos pero código del puente cambiado: hay que volver a desplegarlo.
+        installer.install(home=self.root, settings=self.settings, poc_root=self.poc)
+        self.assertFalse(self.cli('status')[1]['bridge_outdated'])
+        installed = self.root / 'bridge' / 'pancho_bridge' / 'sessions.py'
+        installed.write_text(installed.read_text() + '\n# copia antigua\n')
+        self.assertTrue(self.cli('status')[1]['bridge_outdated'])
+        before = self.settings.read_bytes()
+        code, result = self.cli('install')
+        self.assertEqual(code, 0, result)
+        self.assertEqual(self.settings.read_bytes(), before)
+        self.assertFalse(self.cli('status')[1]['bridge_outdated'])
+
     def _old_events(self):
         # Versión anterior: PreToolUse solo para AskUserQuestion y Stop con 10 s.
         return tuple(('PreToolUse', installer.MATCHER, 1860) if e[0] == 'PreToolUse'
@@ -314,7 +347,7 @@ class PanchoInstallerTest(unittest.TestCase):
         ours = self.ours()
         self.assertEqual({e: len(v) for e, v in ours.items() if v}, {e: 1 for e in EVENTS})
         self.assertEqual(ours['Stop'][0]['hooks'][0]['timeout'], 1860)
-        self.assertEqual(ours['PreToolUse'][0]['matcher'], '^(AskUserQuestion|mcp__ccd_turn__wrap_up)$')
+        self.assertEqual(ours['PreToolUse'][0]['matcher'], installer.PRE_MATCHER)
         self.assertEqual(self.hooks()['PreToolUse'][0], {'matcher': 'Bash', 'hooks': [{'type': 'command', 'command': 'echo ajeno'}]})
         self.assertEqual(Path(result['extensions'][-1]['backup']).read_bytes(), before)
         self.assertEqual(result['backup'], old['backup'])

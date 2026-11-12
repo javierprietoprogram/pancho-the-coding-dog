@@ -15,6 +15,16 @@ final class Controller: NSObject, NSApplicationDelegate, PetDelegate, QuestionPa
     let listWindow = FloatingPanel(size: NSSize(width: M.cardW, height: M.cardH), shadow: true)
     let listView = ListView(frame: NSRect(x: 0, y: 0, width: M.cardW, height: M.cardH))
     let panel = QuestionPanel()
+    /// Panel de agentes: conversaciones de Claude Code y Codex con sus subagentes (cuarto botón de la barra).
+    lazy var agentsPanel: AgentsPanel = {
+        let d = AgentsPanel()
+        d.anchorScreen = { [weak self] in self?.petWindow.screen }
+        return d
+    }()
+    private var agentsPanelCreated = false
+    var subagents: [SubagentInfo] = []
+    /// Subagentes de Codex desde su índice local (también los lanzados antes de conectar los avisos).
+    let codexIndex = CodexIndex()
     /// Codex: invoca `codex-send` una vez tras escribir response.json (o al pulsar «Reintentar»).
     lazy var codexSender: CodexSender = {
         let s = CodexSender(home: store.home)
@@ -31,6 +41,8 @@ final class Controller: NSObject, NSApplicationDelegate, PetDelegate, QuestionPa
     var drafts: [String: Draft] = [:]
     /// Conversaciones quitadas con la ×: no se ven hasta que hacen una pregunta nueva.
     lazy var hiddenSessions: [String: Double] = store.loadHiddenSessions()
+    /// Conversaciones que Pancho vio trabajar y terminaron: siguen en verde hasta la × (o 12 h).
+    lazy var finishedSessions: [String: Double] = store.loadFinishedSessions()
     var models: [String: CardModel] = [:]
     var order: [String] = []
     var hoverList = false
@@ -44,7 +56,13 @@ final class Controller: NSObject, NSApplicationDelegate, PetDelegate, QuestionPa
     var statusMenu: StatusMenu?
     lazy var setup = SetupWindow(controller: self)
     /// Con PANCHO_HOME (pruebas) no se toca la instalación real ni se abre la bienvenida.
+    #if PANCHO_DEBUG
+    /// Depuración: PANCHO_DEBUG_REAL_STATUS=1 deja leer el estado real de la conexión (sin pulsar nada).
+    let testMode = (ProcessInfo.processInfo.environment["PANCHO_HOME"].map { !$0.isEmpty } ?? false)
+        && ProcessInfo.processInfo.environment["PANCHO_DEBUG_REAL_STATUS"] != "1"
+    #else
     let testMode = ProcessInfo.processInfo.environment["PANCHO_HOME"].map { !$0.isEmpty } ?? false
+    #endif
     var reduceMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
     var simulation = false
     var mode: StackMode = .down
@@ -100,6 +118,7 @@ final class Controller: NSObject, NSApplicationDelegate, PetDelegate, QuestionPa
         barView.refresh.onClick = { [weak self] in self?.refreshConversations() }
         barView.mute.onClick = { [weak self] in self?.toggleMute() }
         barView.toggle.onClick = { [weak self] in self?.toggleCollapsed() }
+        barView.agents.onClick = { [weak self] in self?.toggleAgentsPanel() }
         listView.onClick = { [weak self] id in self?.cardClicked(id) }
         listView.onDismiss = { [weak self] id in self?.dismissCard(id) }
         listView.onHover = { [weak self] inside in self?.listHover(inside) }
@@ -175,7 +194,11 @@ final class Controller: NSObject, NSApplicationDelegate, PetDelegate, QuestionPa
         }
         lastStatus = lastStatus.filter { next[$0.key] != nil }
         sessions = store.scanSessions()
+        let now0 = Date().timeIntervalSince1970
+        subagents = mergeSubagents(hooks: store.scanAgents(), codex: codexIndex.rows.compactMap { codexSubagent($0, now: now0) })
+        codexIndex.refresh(now: now0) { [weak self] in self?.poll() }
         var restarted: [String] = []
+        let previousActivity = lastActivity
         for s in sessions {
             if lastActivity[s.id] == "working" && s.activity == "idle" && !firstPoll { finished = true }
             // Una conversación quitada con la × vuelve sola cuando empieza a ejecutarse de nuevo.
@@ -186,6 +209,10 @@ final class Controller: NSObject, NSApplicationDelegate, PetDelegate, QuestionPa
             restarted.forEach { hiddenSessions[$0] = nil }
             store.saveHiddenSessions(hiddenSessions)
         }
+        // Al empezar no se sabe qué se vio trabajar: se conservan las ya guardadas y solo se marcan las nuevas transiciones.
+        let scanned = FileManager.default.fileExists(atPath: store.sessionsDir.path)
+        let finishedNext = !scanned ? finishedSessions : updateFinished(finishedSessions, previous: firstPoll ? [:] : previousActivity, sessions: sessions, now: Date().timeIntervalSince1970)
+        if finishedNext != finishedSessions { finishedSessions = finishedNext; store.saveFinishedSessions(finishedNext) }
         let sessionIds = Set(sessions.map(\.id))
         lastActivity = lastActivity.filter { sessionIds.contains($0.key) }
         codexNotes = codexNotes.filter { next[$0.key] != nil }
@@ -217,6 +244,7 @@ final class Controller: NSObject, NSApplicationDelegate, PetDelegate, QuestionPa
             openPanel(r.key, focus: false)
         }
         render()
+        agentsUpdated()
         updateClickThrough()   // respaldo barato de los monitores de ratón
     }
 
@@ -289,9 +317,13 @@ final class Controller: NSObject, NSApplicationDelegate, PetDelegate, QuestionPa
         }
         // Solo las conversaciones que se están ejecutando ahora (decisión de Javier, 2026-11-11): las paradas o
         // cerradas no tienen tarjeta. Las preguntas y avisos siguen saliendo por su solicitud, arriba.
-        for s in sessions where !sessionsWithCard.contains(s.id) && !sessionHidden(s.id) && sessionRunning(s, now: now) {
+        for s in sessions where !sessionsWithCard.contains(s.id) && !sessionHidden(s.id)
+            && (sessionRunning(s, now: now) || finishedSessions[s.id] != nil) {
             let label: String, ind: Indicator, rank: Int
-            switch s.activity {
+            let done = !sessionRunning(s, now: now)
+            switch done ? "finished" : s.activity {
+            // Terminada (la vio trabajar): en verde hasta la × (petición de Javier, 2026-11-12).
+            case "finished": label = "Terminada"; ind = .none; rank = 3
             case "working": label = "Trabajando"; ind = .dots; rank = 2
             case "idle": label = "En espera"; ind = .none; rank = 3
             case "observed": label = "Observada"; ind = .none; rank = 3
@@ -301,8 +333,9 @@ final class Controller: NSObject, NSApplicationDelegate, PetDelegate, QuestionPa
             }
             let id = "s:" + s.id
             out[id] = CardModel(id: id, title: "\(s.projectName) · sesión \(String(s.sessionId.prefix(8)))", status: label, indicator: ind,
-                                tone: .gray, provider: s.provider, draft: false, chevron: false, dismissible: true, attention: false,
-                                clickable: false, tooltip: "\(s.cwd ?? s.projectName)\nSesión \(s.sessionId)\nSin preguntas pendientes")
+                                tone: done ? .green : .gray, provider: s.provider, draft: false, chevron: false, dismissible: true,
+                                attention: false, clickable: openTarget(s) != .none,
+                                tooltip: "\(s.cwd ?? s.projectName)\nSesión \(s.sessionId)\n" + openHint(s))
             keys.append((rank, s.firstSeen, id))
         }
         keys.sort { ($0.rank, $0.created, $0.id) < ($1.rank, $1.created, $1.id) }
@@ -600,6 +633,29 @@ final class Controller: NSObject, NSApplicationDelegate, PetDelegate, QuestionPa
 
     @objc func showSetup() { setup.show() }
 
+    // MARK: Panel de agentes
+
+    @objc func toggleAgentsPanel() {
+        agentsPanelCreated = true
+        agentsPanel.toggle()
+        agentsUpdated()
+    }
+
+    /// Ayuda del botón con lo que está en marcha (conversaciones trabajando + subagentes) y datos para el panel.
+    private func agentsUpdated() {
+        let now = Date().timeIntervalSince1970
+        let tree = agentsTree(sessions: sessions, agents: subagents, now: now)
+        let sum = agentsSummary(tree, now: now)
+        // Sin número sobre el botón (decisión de Javier, 2026-11-12): el recuento solo va en la ayuda y en el panel.
+        let b = barView.agents
+        var parts: [String] = []
+        if sum.working > 0 { parts.append(sum.working == 1 ? "1 conversación trabajando" : "\(sum.working) conversaciones trabajando") }
+        if sum.runningSubagents > 0 { parts.append(sum.runningSubagents == 1 ? "1 subagente" : "\(sum.runningSubagents) subagentes") }
+        let tip = "Agentes · " + (parts.isEmpty ? "todo tranquilo" : parts.joined(separator: " · "))
+        if b.toolTip != tip { b.toolTip = tip; b.setAccessibilityLabel(tip) }
+        if agentsPanelCreated && agentsPanel.isOpen { agentsPanel.update(agentsPayload(tree, now: now)) }
+    }
+
     /// Clics por lo transparente guiados por eventos: el ratón al moverse (en cualquier app) actualiza
     /// si la ventana de Pancho acepta clics. Sin temporizador rápido; el sondeo de 0,5 s hace de respaldo.
     /// Los monitores globales de ratón no necesitan permiso de accesibilidad y no leen teclas.
@@ -629,15 +685,41 @@ final class Controller: NSObject, NSApplicationDelegate, PetDelegate, QuestionPa
     // MARK: Lista
 
     func cardClicked(_ id: String) {
+        if id.hasPrefix("s:") { openConversation(String(id.dropFirst(2))); return }
         guard id.hasPrefix("r:") else { return }
         openPanel(String(id.dropFirst(2)), focus: true)
+    }
+
+    /// Lleva a la conversación: su hilo en Codex, su sesión en la app de Claude o la terminal donde corre.
+    func openConversation(_ sid: String) {
+        guard let s = sessions.first(where: { $0.id == sid }) else { return }
+        switch openTarget(s) {
+        case .none: return
+        case .url(let u):
+            if let url = URL(string: u) { NSWorkspace.shared.open(url) }
+        case .app(let bundle):
+            // Solo si está abierta: si no, la conversación ya no corre ahí y no se lanza ninguna app.
+            NSRunningApplication.runningApplications(withBundleIdentifier: bundle).first?.activate(options: [.activateAllWindows])
+        }
+    }
+
+    func openHint(_ s: SessionInfo) -> String {
+        switch openTarget(s) {
+        case .none: return "Sin preguntas pendientes"
+        case .url: return s.provider == "codex" ? "Pulsa para abrirla en Codex" : "Pulsa para abrirla en Claude"
+        case .app: return "Pulsa para ir a su terminal"
+        }
     }
 
     /// Quitar (× de la tarjeta o «Quitar» del panel): única vía que escribe dismissed.json.
     /// También oculta la conversación hasta que vuelva a preguntar. En Claude, una pregunta que aún espera
     /// respuesta se devuelve antes a Claude (release.json), para no dejarla bloqueada sin verse.
     func dismissCard(_ id: String) {
-        if id.hasPrefix("s:") { hideSession(String(id.dropFirst(2))); return }
+        if id.hasPrefix("s:") {
+            let sid = String(id.dropFirst(2))
+            if finishedSessions.removeValue(forKey: sid) != nil { store.saveFinishedSessions(finishedSessions) }
+            hideSession(sid); return
+        }
         guard id.hasPrefix("r:") else { return }
         let key = String(id.dropFirst(2))
         guard let first = records[key], first.userCanQuit else { return }

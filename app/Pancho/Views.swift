@@ -154,8 +154,9 @@ final class BarView: NSView {
     let glass = GlassView(radius: 20, tint: C.surface)
     let refresh = IconButton(.refresh, label: "Actualizar conversaciones en ejecución")
     let mute = IconButton(.wave, label: "Silenciar animaciones de Pancho")
+    let agents = IconButton(.dashboard, label: "Agentes")
     let toggle = IconButton(.chevronDown, label: "Contraer conversaciones")
-    let sep1 = NSView(), sep2 = NSView()
+    let sep1 = NSView(), sep2 = NSView(), sep3 = NSView()
     let simLabel = makeLabel("SIMULACIÓN", font: F.sys(8.5, .bold), color: C.orangeText, pass: true)
     var simulation = false { didSet { simLabel.isHidden = !simulation; needsLayout = true } }
 
@@ -164,9 +165,9 @@ final class BarView: NSView {
         glass.autoresizingMask = [.width, .height]
         glass.frame = bounds
         addSubview(glass)
-        for s in [sep1, sep2] { s.wantsLayer = true; s.layer?.backgroundColor = NSColor(white: 0, alpha: 0.12).cgColor }
-        [refresh, sep1, mute, sep2, toggle, simLabel].forEach(glass.content.addSubview)
-        refresh.iconInset = 7.5; mute.iconInset = 7.5; toggle.iconInset = 7.5
+        for s in [sep1, sep2, sep3] { s.wantsLayer = true; s.layer?.backgroundColor = NSColor(white: 0, alpha: 0.12).cgColor }
+        [refresh, sep1, mute, sep2, agents, sep3, toggle, simLabel].forEach(glass.content.addSubview)
+        refresh.iconInset = 7.5; mute.iconInset = 7.5; agents.iconInset = 7.5; toggle.iconInset = 7.5
         simLabel.alignment = .center
         simLabel.isHidden = true
         simLabel.setAccessibilityLabel("Modo simulación")
@@ -182,7 +183,9 @@ final class BarView: NSView {
         sep1.frame = NSRect(x: 40, y: 10, width: 1, height: 20)
         mute.frame = NSRect(x: 43, y: 4, width: 34, height: 32)
         sep2.frame = NSRect(x: 79, y: 10, width: 1, height: 20)
-        toggle.frame = NSRect(x: 82, y: 4, width: 34, height: 32)
+        agents.frame = NSRect(x: 82, y: 4, width: 34, height: 32)
+        sep3.frame = NSRect(x: 118, y: 10, width: 1, height: 20)
+        toggle.frame = NSRect(x: 121, y: 4, width: 34, height: 32)
         simLabel.frame = NSRect(x: 0, y: 37, width: bounds.width, height: 12)
     }
 }

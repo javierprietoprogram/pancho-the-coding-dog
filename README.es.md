@@ -24,7 +24,7 @@ Pancho vive en una esquina de tu pantalla, por encima de todo (también de las a
 
 - **Te avisa al momento.** Cuando un agente te hace una pregunta o te pide permiso, Pancho se anima y aparece una tarjeta con el proyecto y la conversación que te necesita.
 - **Contestas desde ahí.** Pulsas la tarjeta, eliges una opción o escribes tu respuesta, y le das a Enviar. El agente sigue trabajando en su conversación original, como si hubieras contestado en su propia ventana.
-- **Ves todas tus conversaciones de un vistazo.** Una tarjeta por cada conversación en marcha, con su estado: trabajando, esperándote o terminada.
+- **Ves todas tus conversaciones de un vistazo.** Una tarjeta por cada conversación en marcha, con su estado: trabajando, esperándote o terminada. Cuando una conversación termina, se queda en verde como «Terminada» hasta que la quitas con su ×. Al pulsar la tarjeta vas a esa conversación: su hilo en Codex, su sesión en la app de Claude o la terminal donde corre.
 - **Varias a la vez, sin mezclarse.** Cada respuesta vuelve exactamente a la conversación que hizo la pregunta.
 - **No pierdes nada.** Si cierras la tarjeta o no contestas, la pregunta vuelve a su app y la respondes allí. Pancho nunca responde por ti ni reenvía nada por su cuenta.
 
@@ -143,6 +143,7 @@ Solo se hace una vez. Puedes volver a ver los pasos con el botón «Ver los paso
 - **Contestar**: pulsa la tarjeta de la conversación que te espera, responde y pulsa Enviar.
 - **Quitar una conversación de la lista**: con la × de su tarjeta. Vuelve a salir sola si te hace una pregunta nueva.
 - **Menú de la barra de menús**: abrir la siguiente pregunta pendiente, actualizar conversaciones, mostrar u ocultar la lista, activar o quitar las animaciones, cambiar el tamaño de Pancho y salir.
+- **Panel de agentes**: el cuarto botón de la barra abre un panel con tus conversaciones de Claude Code y Codex que están trabajando y, debajo de cada una, los subagentes que lanza (los que están en marcha primero; los terminados, atenuados y con ✓, durante media hora). Al pulsar una fila ves su detalle (tipo, título corto, proyecto, conversación, inicio y duración) o abres la carpeta del proyecto. Claude da a cada subagente un título corto. Los de Codex muestran su apodo y el nombre de su tarea, que Pancho lee del índice local de Codex (así salen aunque empezaran antes de conectar Pancho). Si conectaste Pancho antes de que existiera este panel, la ventana de configuración muestra «Hay avisos nuevos de Pancho · Actualizar»: púlsalo una vez para Claude y otra para Codex (Codex vuelve a pedirte el visto bueno de las entradas nuevas).
 
 ### Ajustes (Configuración…)
 
@@ -158,7 +159,7 @@ Solo se hace una vez. Puedes volver a ver los pasos con el botón «Ver los paso
 
 - **Sin red, sin cuentas, sin claves.** Pancho no envía nada fuera de tu Mac.
 - **No lee tu historial.** No abre las transcripciones de tus conversaciones; solo recibe el aviso concreto de cada pregunta o permiso.
-- **Guarda lo mínimo.** El texto de las preguntas que gestiona y tus respuestas, en una carpeta privada de tu usuario.
+- **Guarda lo mínimo.** El texto de las preguntas que gestiona y tus respuestas, en una carpeta privada de tu usuario. Para el panel de agentes, solo el tipo y el título corto de cada subagente, su proyecto y sus horas de inicio y fin; nunca lo que se le pidió ni lo que respondió. En Claude guarda también dónde vive cada conversación (el id de la sesión de la app de Claude y qué app de terminal), para llevarte a ella al pulsar. En Codex lee además, en solo lectura, la lista de subagentes de su índice local (`~/.codex/state_*.sqlite`): solo madre, apodo, tarea, carpeta y horas; nunca texto de la conversación.
 - **Respeta tu configuración.** Al conectar, solo añade sus propias entradas a `~/.claude/settings.json` y `~/.codex/hooks.json`, y antes guarda una copia de seguridad del archivo. Tus hooks y ajustes no se tocan.
 - **Si Pancho está cerrado, no pasa nada.** Los avisos salen en Claude y en Codex como siempre.
 - **No pulsa ni escribe en otras apps.** No necesita permisos de Accesibilidad ni de grabación de pantalla.

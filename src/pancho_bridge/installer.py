@@ -39,8 +39,9 @@ from .store import atomic_json, default_root, ensure_private_dir, read_json, res
 
 POC_OWNER = 'desktop-questions-poc-v1'
 MATCHER = '^AskUserQuestion$'
-# PreToolUse escucha además el recuadro «siguiente paso» de la app de Claude (solo lo anota).
-PRE_MATCHER = '^(AskUserQuestion|mcp__ccd_turn__wrap_up)$'
+# PreToolUse escucha además el recuadro «siguiente paso» de la app de Claude y el lanzamiento de
+# subagentes (Agent; Task en versiones antiguas) para el panel de agentes: ambos solo se anotan.
+PRE_MATCHER = '^(AskUserQuestion|mcp__ccd_turn__wrap_up|Agent|Task)$'
 EVENTS = (  # (evento, matcher, timeout)
     ('SessionStart', None, 10),
     ('UserPromptSubmit', None, 10),
@@ -52,6 +53,8 @@ EVENTS = (  # (evento, matcher, timeout)
     ('Stop', None, 1860),  # Puede esperar la respuesta al recuadro «siguiente paso».
     ('StopFailure', None, 10),  # Válido en Claude Code 2.1.317 (PoC verificada).
     ('SessionEnd', None, 10),
+    ('SubagentStart', None, 10),  # Panel de agentes: inicio y fin de cada subagente.
+    ('SubagentStop', None, 10),
 )
 MIN_PYTHON = (3, 9)
 OWNER_PATTERN = re.compile(r"--owner\s+'?" + re.escape(OWNER) + r"'?(\s|$)")
@@ -221,6 +224,16 @@ def missing_events(previous, entries, hooks):
     return [e for e in entries if e not in known or (e in added and added[e] != entries[e])]
 
 
+def pending_events(manifest, hooks, builder):
+    """Eventos que esta versión de Pancho añade o cambia y la configuración aún no tiene (para que
+    la app ofrezca «Actualizar»). [] si está al día; None si la instalación no se reconoce."""
+    python = (manifest.get('python') or {}).get('path')
+    if not python:
+        return None
+    entries = builder(Path(python), Path(manifest.get('root')))
+    return missing_events(manifest, entries, hooks)
+
+
 # --- intérprete y copia del código ---------------------------------------------------------
 
 def check_python(python):
@@ -245,6 +258,18 @@ def _hash_tree(directory):
         if path.is_file():
             result[str(path.relative_to(directory))] = _sha256(path.read_bytes())
     return result
+
+
+def _py_tree(directory):
+    return {name: digest for name, digest in _hash_tree(directory).items() if name.endswith('.py')} if directory.is_dir() else {}
+
+
+def bridge_outdated(root):
+    """¿La copia instalada del puente difiere del código de esta versión de Pancho? (la app ofrece «Actualizar»)."""
+    installed = Path(root) / 'bridge' / 'pancho_bridge'
+    if not installed.is_dir():
+        return False
+    return _py_tree(installed) != _py_tree(Path(__file__).resolve().parent)
 
 
 def _deploy_bridge(root, python):
@@ -339,8 +364,9 @@ def migrate_poc(poc_root, python):
 
 # --- operaciones ---------------------------------------------------------------------------
 
-def _extend(root, settings, python, data, original_bytes, hooks, previous, entries, missing):
+def _extend(root, settings, python, data, original_bytes, hooks, previous, entries, missing, manifest_path=None):
     """Amplía una instalación anterior con los eventos nuevos, con copia previa propia."""
+    manifest_path = manifest_path or _manifest_path(root)
     stamp = _stamp()
     backup_dir = ensure_private_dir(root / 'backups' / stamp, root)
     backup = backup_dir / settings.name
@@ -364,11 +390,11 @@ def _extend(root, settings, python, data, original_bytes, hooks, previous, entri
     previous.setdefault('extensions', []).append(
         dict(at=stamp, events=added, backup=str(backup), backup_sha256=_sha256(original_bytes)))
     previous.update(version=VERSION, refreshed_at=stamp)
-    atomic_json(_manifest_path(root), previous)  # Antes de mutar: datos de recuperación.
+    atomic_json(manifest_path, previous)  # Antes de mutar: datos de recuperación.
     data['hooks'] = hooks
     _write_settings(settings, data, original_bytes, settings.stat().st_mode & 0o777)
     previous['bridge'] = _deploy_bridge(root, python)
-    atomic_json(_manifest_path(root), previous)
+    atomic_json(manifest_path, previous)
     extra = unmanaged_entries(hooks, previous)
     return dict(previous, already_installed=True, extended_events=added, unmanaged_owner_entries=extra,
                 warnings=[_unmanaged_warning(extra)] if extra else [])
@@ -523,6 +549,9 @@ def install_status(home=None, settings=None, poc_root=None):
                       entries={e: ('presente' if isinstance(hooks.get(e), list) and entry in hooks[e]
                                    else 'ausente o modificada') for e, entry in manifest['entries'].items()},
                       poc_migrations=manifest.get('poc_migrations', []))
+        if manifest.get('active'):
+            result['missing_events'] = pending_events(manifest, hooks, build_entries)
+            result['bridge_outdated'] = bridge_outdated(root)
         if manifest.get('active') and not present:
             result['warnings'].append('El intérprete de los hooks no existe o no es ejecutable: '
                                       + str(python.get('path')) + '. Los hooks no hacen nada (|| true); '
