@@ -44,6 +44,8 @@ struct SubagentInfo: Equatable {
 enum AgentsLimits {
     static let doneKeep: Double = 30 * 60      // terminados: media hora
     static let runningMax: Double = 12 * 3600  // en marcha sin fin tras 12 h: caído
+    /// Claude no envía Stop si el turno se interrumpe (Escape): sin avisos en 15 min, ya no trabaja.
+    static let claudeQuiet: Double = 15 * 60
 }
 
 /// Lee un JSON de v1/agents. Los pendientes (listas) y los registros sin identidad se ignoran.
@@ -87,7 +89,7 @@ struct AgentsSummary: Equatable {
 }
 
 func agentConversationWorking(_ s: SessionInfo, now: Double) -> Bool {
-    s.activity == "working" && now - s.lastEventAt < AgentsLimits.runningMax
+    s.activity == "working" && now - s.lastEventAt < (s.provider == "claude" ? AgentsLimits.claudeQuiet : AgentsLimits.runningMax)
 }
 
 /// ¿Se muestra este subagente? En marcha hasta 12 h; terminado durante media hora.

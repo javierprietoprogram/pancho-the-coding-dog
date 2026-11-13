@@ -746,8 +746,8 @@ final class Controller: NSObject, NSApplicationDelegate, PetDelegate, QuestionPa
         render(force: true)
     }
 
-    /// En ejecución = trabajando y con algún evento en las últimas 12 h (tope por si un cierre se perdió).
-    func sessionRunning(_ s: SessionInfo, now: Double) -> Bool { s.activity == "working" && now - s.lastEventAt < 12 * 3600 }
+    /// En ejecución: la regla de `agentConversationWorking` (Claude interrumpida = 15 min sin avisos; tope de 12 h).
+    func sessionRunning(_ s: SessionInfo, now: Double) -> Bool { agentConversationWorking(s, now: now) }
 
     /// Las que se están ejecutando dejan de estar ocultas; las paradas o cerradas siguen quitadas.
     func unhideActiveSessions(now: Double = Date().timeIntervalSince1970) {
